@@ -51,6 +51,13 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
 
+# React Frontend distribution
+FRONTEND_DIST = os.path.abspath(os.path.join(BASE_DIR, "frontend", "dist"))
+if os.path.exists(FRONTEND_DIST):
+    assets_dir = os.path.join(FRONTEND_DIST, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend_assets")
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 library_mgr = LibraryManager(storage_dir=LIBRARY_DIR)
@@ -83,10 +90,30 @@ class CompileBookRequest(BaseModel):
 
 @app.get("/")
 def get_index():
+    react_index = os.path.join(FRONTEND_DIST, "index.html")
+    if os.path.exists(react_index):
+        return FileResponse(react_index)
     index_file = os.path.join(TEMPLATES_DIR, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
     return {"message": "Digital Library API running. Index template pending creation."}
+
+
+@app.get("/favicon.svg")
+def get_favicon():
+    fav = os.path.join(FRONTEND_DIST, "favicon.svg")
+    if os.path.exists(fav):
+        return FileResponse(fav)
+    raise HTTPException(status_code=404)
+
+
+@app.get("/icons.svg")
+def get_icons():
+    ico = os.path.join(FRONTEND_DIST, "icons.svg")
+    if os.path.exists(ico):
+        return FileResponse(ico)
+    raise HTTPException(status_code=404)
+
 
 
 @app.post("/api/ocr")
