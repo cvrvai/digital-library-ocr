@@ -1,0 +1,44 @@
+/* Custom Styles for PaddleOCR Digital Library */
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Page Card Dragging & Selection */
+.page-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+.page-card:hover {
+  transform: translateY(-2px);
+}
+.page-card.selected {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+}
+
+/* Book Card Hover Effect */
+.book-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+.book-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5), 0 0 20px -5px rgba(99, 102, 241, 0.15);
+}
+
+/* Canvas overlay for OCR bounding boxes */
+#ocr-canvas {
+  touch-action: none;
+}

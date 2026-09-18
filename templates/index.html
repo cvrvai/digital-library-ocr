@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Scanner • AI OCR</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/static/style.css?v=20260918_0930">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+          <i class="fa-solid fa-book-open text-white text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+            Text Scanner <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">AI OCR</span>
+          </h1>
+          <p class="text-xs text-slate-400">Scan & extract text instantly</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex space-x-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
+        <button id="tab-studio-btn" onclick="switchTab('studio')" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow">
+          <i class="fa-solid fa-cloud-arrow-up mr-2"></i>Upload & OCR
+        </button>
+        <button id="tab-library-btn" onclick="switchTab('library')" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-700/50">
+          <i class="fa-solid fa-layer-group mr-2"></i>My Library <span id="library-count-badge" class="ml-1 text-xs bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">0</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- ================= TAB 1: UPLOAD & OCR ================= -->
+    <section id="tab-studio" class="space-y-6">
+
+      <!-- Initial Empty State / Main Upload Box -->
+      <div id="hero-upload-box" class="space-y-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+          <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">OCR Language:</span>
+              <select id="ocr-lang" class="bg-slate-800 text-slate-200 text-sm rounded-lg px-3 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500">
+                <option value="en" selected>English (Latin)</option>
+                <option value="ch">Chinese & English</option>
+                <option value="french">French</option>
+                <option value="german">German</option>
+                <option value="japan">Japanese</option>
+                <option value="korean">Korean</option>
+                <option value="latin">Multilingual Latin</option>
+              </select>
+            </div>
+
+            <label class="flex items-center space-x-2 cursor-pointer text-xs font-medium text-slate-300 hover:text-white select-none bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60">
+              <input type="checkbox" id="auto-crop-toggle" class="rounded bg-slate-900 border-slate-600 text-indigo-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer" checked>
+              <span><i class="fa-solid fa-crop-simple text-indigo-400 mr-1"></i> Auto-Flatten Phone Photos</span>
+            </label>
+          </div>
+
+          <div class="flex items-center space-x-3 text-xs text-slate-400">
+            <span class="flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt text-amber-400"></i> Auto-runs OCR on upload
+            </span>
+          </div>
+        </div>
+
+        <div id="dropzone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('file-upload-input').click()" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-900/40 rounded-3xl p-12 text-center cursor-pointer transition-all duration-200 group">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 flex items-center justify-center text-3xl mb-4 border border-indigo-500/20 transition-transform">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+          <h2 class="text-lg font-bold text-white">Upload Images & Run OCR</h2>
+          <p class="text-sm text-slate-400 mt-1">Drag & drop scanned pages, photos, or book covers</p>
+          <p class="text-xs text-slate-500 mt-0.5">Supports PNG, JPG, JPEG, WEBP, TIFF (select single or multiple files)</p>
+          
+          <div class="mt-6">
+            <span class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition">
+              <i class="fa-solid fa-plus"></i> Select Book Images
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading / Processing Spinner Banner -->
+      <div id="processing-banner" class="hidden bg-slate-900 border border-indigo-500/30 rounded-2xl p-6 text-center space-y-3">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-600/20 text-indigo-400 text-xl animate-spin">
+          <i class="fa-solid fa-circle-notch"></i>
+        </div>
+        <h3 id="processing-title" class="text-base font-bold text-white">Running PaddleOCR...</h3>
+        <p id="processing-subtitle" class="text-xs text-slate-400">Analyzing layout, detecting lines, and reading text...</p>
+      </div>
+
+      <!-- Active Workspace (Visible once images are uploaded) -->
+      <div id="pages-workspace" class="hidden space-y-6">
+
+        <!-- Top Compile & Actions Bar -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 p-5 rounded-2xl border border-indigo-500/20 space-y-4">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-book text-indigo-400"></i> Book Pages
+              </h2>
+              <span id="page-count-badge" class="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-md text-xs font-semibold">0 pages</span>
+            </div>
+
+            <!-- Upload More button -->
+            <button onclick="document.getElementById('file-upload-input').click()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition border border-slate-700 flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Add More Pages
+            </button>
+          </div>
+
+          <!-- Metadata input & Compile Button -->
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end pt-1 border-t border-slate-800/80">
+            <div class="sm:col-span-5">
+              <label class="block text-xs font-medium text-slate-400 mb-1">Book Title *</label>
+              <input type="text" id="book-title" placeholder="e.g. English Through Practice" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div class="sm:col-span-4">
+              <label class="block text-xs font-medium text-slate-400 mb-1">Author / Source</label>
+              <input type="text" id="book-author" placeholder="e.g. Lydia Miquel" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div class="sm:col-span-3">
+              <button id="compile-btn" onclick="compileBook()" class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/25 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-file-pdf"></i> Create PDF Book
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pages List (Clean Page-by-Page Cards) -->
+        <div id="pages-list" class="space-y-4">
+          <!-- Dynamic page cards will be rendered here -->
+        </div>
+
+      </div>
+
+      <input type="file" id="file-upload-input" multiple accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+    </section>
+
+    <!-- ================= TAB 2: DIGITAL LIBRARY ================= -->
+    <section id="tab-library" class="hidden space-y-6">
+
+      <!-- Search Header -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+        <div class="relative w-full sm:w-96">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input type="text" id="library-search-input" oninput="handleLibrarySearch(event)" placeholder="Search books by title, author, or OCR text..." class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+          <button onclick="loadLibrary()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition">
+            <i class="fa-solid fa-arrow-rotate-right mr-1.5"></i>Refresh
+          </button>
+          <button onclick="switchTab('studio')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow transition">
+            <i class="fa-solid fa-plus mr-1.5"></i>New Book
+          </button>
+        </div>
+      </div>
+
+      <!-- Library Grid -->
+      <div id="library-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <!-- Dynamic Book Cards -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="library-empty-state" class="hidden text-center py-16 bg-slate-900/30 rounded-2xl border border-slate-800">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800 text-slate-500 flex items-center justify-center text-3xl mb-4">
+          <i class="fa-solid fa-book-bookmark"></i>
+        </div>
+        <h3 class="text-base font-semibold text-white">Your Digital Library is empty</h3>
+        <p class="text-sm text-slate-400 mt-1">Upload images to create your first searchable PDF book!</p>
+        <button onclick="switchTab('studio')" class="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition shadow">
+          <i class="fa-solid fa-plus mr-2"></i>Upload Images
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================= CROP & PERSPECTIVE CORRECTION MODAL ================= -->
+  <div id="crop-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-4 sm:p-6">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+      
+      <!-- Modal Header -->
+      <div class="h-14 px-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-7 h-7 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-xs">
+            <i class="fa-solid fa-crop-simple"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Crop & Flatten Document</h3>
+            <p class="text-[11px] text-slate-400">Drag the 4 corners to remove table background and flatten perspective</p>
+          </div>
+        </div>
+        <button onclick="closeCropModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Canvas Body -->
+      <div class="flex-1 bg-slate-950 p-4 flex items-center justify-center overflow-hidden relative select-none">
+        <div id="crop-container" class="relative inline-block max-h-[60vh] max-w-full">
+          <img id="crop-img" src="" alt="Crop Source" class="max-h-[60vh] max-w-full object-contain rounded-lg pointer-events-none">
+          <canvas id="crop-canvas" class="absolute inset-0 cursor-crosshair"></canvas>
+        </div>
+      </div>
+
+      <!-- Modal Footer Controls -->
+      <div class="h-16 px-6 border-t border-slate-800 bg-slate-900 flex items-center justify-between">
+        <button onclick="autoDetectModalCorners()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition border border-slate-700">
+          <i class="fa-solid fa-wand-magic-sparkles mr-1.5 text-indigo-400"></i>Auto-Detect Corners
+        </button>
+
+        <div class="flex items-center space-x-3">
+          <button onclick="closeCropModal()" class="px-4 py-2 text-slate-400 hover:text-white text-xs font-semibold transition">
+            Cancel
+          </button>
+          <button id="apply-crop-btn" onclick="applyPerspectiveCrop()" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/25 transition flex items-center gap-2">
+            <i class="fa-solid fa-check"></i> Flatten & Run OCR
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PDF Reader Modal -->
+  <div id="reader-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex flex-col">
+    <div class="h-14 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-7 h-7 rounded bg-indigo-600 text-white flex items-center justify-center text-xs">
+          <i class="fa-solid fa-file-pdf"></i>
+        </div>
+        <h3 id="reader-title" class="text-sm font-bold text-white truncate max-w-md">Book Title</h3>
+      </div>
+      <div class="flex items-center space-x-3">
+        <a id="reader-download-btn" href="#" download class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition">
+          <i class="fa-solid fa-download mr-1.5"></i>Download PDF
+        </a>
+        <button onclick="closePDFReader()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+    <div class="flex-1 bg-slate-950 p-2 sm:p-4">
+      <iframe id="reader-iframe" src="" class="w-full h-full rounded-xl border border-slate-800 shadow-2xl" frameborder="0"></iframe>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden px-4 py-3 rounded-xl shadow-2xl border text-sm flex items-center space-x-3 transition-all">
+    <i id="toast-icon" class="fa-solid fa-circle-check"></i>
+    <span id="toast-message">Notification message</span>
+  </div>
+
+  <script src="/static/app.js?v=20260918_0930"></script>
+</body>
+</html>
