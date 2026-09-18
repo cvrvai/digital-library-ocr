@@ -126,8 +126,29 @@ class OCREngine:
             raise RuntimeError(f"Gemini API error ({response.status_code}): {response.text}")
 
         data = response.json()
-        raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
-        parsed = json.loads(raw_text)
+        raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+        # Clean markdown code blocks if wrapped
+        clean_json = raw_text
+        if clean_json.startswith("```"):
+            clean_json = clean_json.split("\n", 1)[-1]
+            if clean_json.endswith("```"):
+                clean_json = clean_json[:-3]
+        clean_json = clean_json.strip()
+
+        parsed = {}
+        try:
+            parsed = json.loads(clean_json)
+        except Exception:
+            import re
+            m = re.search(r"\{.*\}", clean_json, re.DOTALL)
+            if m:
+                try:
+                    parsed = json.loads(m.group(0))
+                except Exception:
+                    parsed = {"lines": [], "full_text": clean_json}
+            else:
+                parsed = {"lines": [], "full_text": clean_json}
 
         raw_lines = parsed.get("lines", [])
         lines: List[Dict[str, Any]] = []

@@ -168,8 +168,16 @@ def estimate_skew_angle(img: np.ndarray) -> float:
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=80, minLineLength=60, maxLineGap=10)
     if lines is None or len(lines) < 5:
         return 0.0
-    angles = [(((np.degrees(np.arctan2(l[0][3] - l[0][1], l[0][2] - l[0][0])) + 45) % 90) - 45) for l in lines]
-    return float(np.median(angles))
+    angles = []
+    for l in lines:
+        pts = l[0] if (hasattr(l, "shape") and len(l.shape) > 1) else l
+        try:
+            x1, y1, x2, y2 = float(pts[0]), float(pts[1]), float(pts[2]), float(pts[3])
+            deg = (((np.degrees(np.arctan2(y2 - y1, x2 - x1)) + 45) % 90) - 45)
+            angles.append(deg)
+        except Exception:
+            continue
+    return float(np.median(angles)) if angles else 0.0
 
 
 def auto_deskew_image(image_path: str, output_path: str) -> Tuple[str, float]:
