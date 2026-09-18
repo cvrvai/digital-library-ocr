@@ -7,10 +7,20 @@ import uuid
 import time
 from typing import List, Optional
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Load .env configuration if present
+_env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_file):
+    with open(_env_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
 
 from ocr_engine import OCREngine
 from pdf_builder import PDFBookBuilder
@@ -79,6 +89,40 @@ def get_index():
     return {"message": "Digital Library API running. Index template pending creation."}
 
 
+@app.post("/api/ocr")
+async def direct_text_ocr(
+    file: UploadFile = File(...),
+    lang: str = Form("km"),
+    engine: str = Form("auto")
+):
+    """
+    Direct standalone Text OCR endpoint.
+    Upload an image file and immediately receive the extracted text.
+    """
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
+    temp_name = f"temp_ocr_{uuid.uuid4().hex[:8]}{ext}"
+    temp_path = os.path.join(TEMP_DIR, temp_name)
+    with open(temp_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    try:
+        res = ocr_engine.process_image(temp_path, lang=lang, engine=engine)
+        return {
+            "text": res.get("full_text", "").strip(),
+            "line_count": res.get("line_count", 0),
+            "lines": [l.get("text", "") for l in res.get("lines", [])],
+            "details": res.get("lines", []),
+            "engine": res.get("engine", engine)
+        }
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
 # ---------------- Session & Page Management ----------------
 
 @app.post("/api/session/create")
@@ -100,7 +144,8 @@ async def upload_images(
     files: List[UploadFile] = File(...),
     auto_ocr: bool = Form(True),
     auto_crop: bool = Form(True),
-    lang: str = Form("en")
+    lang: str = Form("en"),
+    engine: str = Form("auto")
 ):
     if session_id not in sessions:
         session_path = os.path.join(TEMP_DIR, session_id)
@@ -158,7 +203,7 @@ async def upload_images(
 
         if auto_ocr:
             try:
-                ocr_res = ocr_engine.process_image(active_image_path, lang=lang)
+                ocr_res = ocr_engine.process_image(active_image_path, lang=lang, engine=engine)
                 ocr_status = "completed"
             except Exception as e:
                 print(f"[OCR ERROR] {e}")
@@ -320,7 +365,7 @@ def auto_flatten_page(session_id: str, page_id: str):
     page["updated_at"] = now_ts
 
     try:
-        ocr_res = ocr_engine.process_image(cropped_path, lang="en")
+        ocr_res = ocr_engine.process_image(page["image_path"], lang="en", engine="auto")
         page["ocr_status"] = "completed"
         page["ocr_result"] = ocr_res
     except Exception as e:
@@ -379,7 +424,8 @@ def delete_page(session_id: str, page_id: str):
 def run_ocr(
     session_id: str,
     page_id: Optional[str] = Query(None),
-    lang: str = Query("en")
+    lang: str = Query("en"),
+    engine: str = Query("auto")
 ):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -398,7 +444,7 @@ def run_ocr(
     results = []
     for p in target_pages:
         try:
-            res = ocr_engine.process_image(p["image_path"], lang=lang)
+            res = ocr_engine.process_image(p["image_path"], lang=lang, engine=engine)
             p["ocr_status"] = "completed"
             p["ocr_result"] = res
             results.append({
@@ -441,6 +487,82 @@ def update_page_ocr(session_id: str, page_id: str, req: PageOCREditRequest):
         page["ocr_result"]["line_count"] = len(req.lines)
 
     return {"message": "OCR text updated", "ocr_result": page["ocr_result"]}
+
+
+@app.get("/api/session/{session_id}/page/{page_id}/tts")
+def page_tts(session_id: str, page_id: str):
+    """
+    Synthesizes speech for a scanned page using Gemini TTS and Kore voice.
+    Returns audio/wav for direct playback in web browsers.
+    """
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    page = next((p for p in sessions[session_id]["pages"] if p["id"] == page_id), None)
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    ocr_result = page.get("ocr_result") or {}
+    text_to_read = str(ocr_result.get("full_text") or "").strip()
+    if not text_to_read:
+        lines = ocr_result.get("lines", [])
+        text_to_read = " ".join([str(l.get("text", "")).strip() for l in lines]).strip()
+
+    if not text_to_read:
+        raise HTTPException(status_code=400, detail="No transcribed text available to read.")
+
+    # Limit to first 2500 characters to keep audio generation quick
+    text_to_read = text_to_read[:2500]
+
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    tts_model = os.environ.get("GEMINI_TTS_MODEL", "gemini-3.1-flash-tts-preview").strip()
+    tts_voice = os.environ.get("GEMINI_TTS_VOICE", "Kore").strip()
+
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured in .env")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{tts_model}:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": text_to_read}]}],
+        "generationConfig": {
+            "response_modalities": ["AUDIO"],
+            "speech_config": {
+                "voice_config": {
+                    "prebuilt_voice_config": {
+                        "voice_name": tts_voice
+                    }
+                }
+            }
+        }
+    }
+
+    try:
+        import requests
+        import wave
+        import io
+        import base64
+
+        r = requests.post(url, json=payload, timeout=45)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Gemini TTS error ({r.status_code}): {r.text}")
+
+        data = r.json()
+        part = data["candidates"][0]["content"]["parts"][0]
+        b64_pcm = part["inlineData"]["data"]
+        pcm_bytes = base64.b64decode(b64_pcm)
+
+        wav_io = io.BytesIO()
+        with wave.open(wav_io, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(24000)
+            wav_file.writeframes(pcm_bytes)
+        wav_bytes = wav_io.getvalue()
+
+        return Response(content=wav_bytes, media_type="audio/wav")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS synthesis error: {str(e)}")
 
 
 # ---------------- Compile to PDF Book & Digital Library ----------------
@@ -581,4 +703,4 @@ def delete_library_book(book_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("app:app", host="127.0.0.1", port=8080, reload=True)

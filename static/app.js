@@ -98,6 +98,7 @@ async function uploadAndOCRFiles(files) {
   if (procTitle) procTitle.textContent = "Processing...";
 
   const autoCrop = document.getElementById("auto-crop-toggle")?.checked ?? true;
+  const engine = document.getElementById("ocr-engine") ? document.getElementById("ocr-engine").value : "auto";
   const formData = new FormData();
   for (let i = 0; i < files.length; i++) {
     formData.append("files", files[i]);
@@ -105,6 +106,7 @@ async function uploadAndOCRFiles(files) {
   formData.append("auto_ocr", "true");
   formData.append("auto_crop", autoCrop ? "true" : "false");
   formData.append("lang", lang);
+  formData.append("engine", engine);
 
   try {
     const res = await fetch(`/api/session/${currentSessionId}/upload`, {
@@ -117,7 +119,7 @@ async function uploadAndOCRFiles(files) {
     hero.classList.add("hidden");
     workspace.classList.remove("hidden");
 
-    showToast(`Processed ${data.uploaded_pages.length} pages with PaddleOCR!`, "success");
+    showToast(`Processed ${data.uploaded_pages.length} pages with AI OCR!`, "success");
     await refreshPages();
 
     // Auto-suggest title if empty
@@ -233,6 +235,9 @@ function renderPagesList() {
               <i class="fa-solid fa-align-left text-indigo-400"></i> Recognized Text
             </label>
             <div class="flex items-center space-x-2">
+              <button onclick="playPageTTS('${page.id}')" id="tts-btn-${page.id}" title="Read aloud with Gemini TTS" class="px-2.5 py-1 rounded bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white text-xs font-medium transition flex items-center gap-1.5 border border-violet-500/30">
+                <i class="fa-solid fa-volume-high"></i> <span id="tts-label-${page.id}">Listen</span>
+              </button>
               <button onclick="copyText('textarea-${page.id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition">
                 <i class="fa-regular fa-copy mr-1"></i>Copy Text
               </button>
@@ -378,6 +383,76 @@ function copyText(textareaId) {
   showToast("Text copied to clipboard!", "success");
 }
 
+let activeAudioPlayer = null;
+
+async function playPageTTS(pageId) {
+  const btn = document.getElementById(`tts-btn-${pageId}`);
+  const label = document.getElementById(`tts-label-${pageId}`);
+  if (!btn) return;
+
+  // If already playing this audio, stop it
+  if (activeAudioPlayer && !activeAudioPlayer.paused && activeAudioPlayer.dataset.pageId === pageId) {
+    activeAudioPlayer.pause();
+    activeAudioPlayer = null;
+    if (label) label.textContent = "Listen";
+    btn.classList.remove("bg-violet-600", "text-white");
+    return;
+  }
+
+  // Stop any previous audio
+  if (activeAudioPlayer) {
+    activeAudioPlayer.pause();
+    document.querySelectorAll('[id^="tts-label-"]').forEach(l => l.textContent = "Listen");
+  }
+
+  const prevText = label ? label.textContent : "Listen";
+  if (label) label.textContent = "Synthesizing...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/session/${currentSessionId}/page/${pageId}/tts`);
+    if (!res.ok) {
+      let errMsg = "Failed to generate audio";
+      try {
+        const errJson = await res.json();
+        errMsg = errJson.detail || errMsg;
+      } catch (_) {}
+      throw new Error(errMsg);
+    }
+
+    const blob = await res.blob();
+    const audioUrl = URL.createObjectURL(blob);
+    const audio = new Audio(audioUrl);
+    audio.dataset.pageId = pageId;
+    activeAudioPlayer = audio;
+
+    audio.onplay = () => {
+      if (label) label.textContent = "Playing...";
+      btn.classList.add("bg-violet-600", "text-white");
+      btn.disabled = false;
+    };
+
+    audio.onended = () => {
+      if (label) label.textContent = "Listen";
+      btn.classList.remove("bg-violet-600", "text-white");
+      activeAudioPlayer = null;
+    };
+
+    audio.onerror = () => {
+      if (label) label.textContent = "Listen";
+      btn.classList.remove("bg-violet-600", "text-white");
+      activeAudioPlayer = null;
+      showToast("Audio playback error", "error");
+    };
+
+    await audio.play();
+  } catch (err) {
+    showToast(err.message, "error");
+    if (label) label.textContent = "Listen";
+    btn.disabled = false;
+  }
+}
+
 async function movePage(fromIndex, direction) {
   const toIndex = fromIndex + direction;
   if (toIndex < 0 || toIndex >= sessionPages.length) return;
@@ -429,10 +504,11 @@ async function autoStraightenPage(pageId) {
 async function reRunPageOCR(pageId) {
   if (!currentSessionId) return;
   const lang = document.getElementById("ocr-lang").value;
-  showToast("Re-scanning page with optimized thresholds...", "info");
+  const engine = document.getElementById("ocr-engine") ? document.getElementById("ocr-engine").value : "auto";
+  showToast("Re-scanning page with AI OCR...", "info");
 
   try {
-    const res = await fetch(`/api/session/${currentSessionId}/ocr?page_id=${pageId}&lang=${lang}`, {
+    const res = await fetch(`/api/session/${currentSessionId}/ocr?page_id=${pageId}&lang=${lang}&engine=${engine}`, {
       method: "POST"
     });
     const data = await res.json();

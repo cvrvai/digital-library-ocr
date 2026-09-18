@@ -16,11 +16,11 @@ if not exist "%CLOUDFLARED_EXE%" (
     exit /b 1
 )
 
-echo Starting Cloudflare Tunnel pointing to http://127.0.0.1:8000 ...
+echo Starting Cloudflare Tunnel pointing to http://127.0.0.1:8080 ...
 echo A public HTTPS domain on *.trycloudflare.com will be generated below.
 echo Press Ctrl+C anytime to stop the tunnel.
 echo =====================================================================
 echo.
 
-"%CLOUDFLARED_EXE%" tunnel --url http://127.0.0.1:8000
+"%CLOUDFLARED_EXE%" tunnel --url http://127.0.0.1:8080
 pause

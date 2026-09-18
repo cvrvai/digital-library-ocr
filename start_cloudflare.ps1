@@ -16,8 +16,8 @@ if (-not (Test-Path $Cloudflared)) {
 }
 
 Write-Host "Connecting to Cloudflare edge network..." -ForegroundColor Yellow
-Write-Host "Forwarding public traffic to local server at http://127.0.0.1:8000" -ForegroundColor Gray
+Write-Host "Forwarding public traffic to local server at http://127.0.0.1:8080" -ForegroundColor Gray
 Write-Host "Your generated public domain will appear below in a few seconds..." -ForegroundColor Green
 Write-Host "------------------------------------------------------------------" -ForegroundColor Cyan
 
-& $Cloudflared tunnel --url http://127.0.0.1:8000
+& $Cloudflared tunnel --url http://127.0.0.1:8080

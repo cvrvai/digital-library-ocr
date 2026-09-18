@@ -18,20 +18,21 @@ if %ERRORLEVEL% neq 0 (
 echo.
 
 :: 2. Check virtual environment
-echo [2/3] Checking Python virtual environment...
-if not exist ".venv\Scripts\python.exe" (
-    echo [ERROR] Virtual environment .venv not found!
-    pause
-    exit /b 1
+echo [2/3] Checking Python environment...
+set "PYTHON_EXE=python"
+if exist ".venv\Scripts\python.exe" (
+    set "PYTHON_EXE=.venv\Scripts\python.exe"
+    echo [OK] Using virtual environment .venv
+) else (
+    echo [OK] Using system Python
 )
-echo [OK] Python environment found.
 echo.
 
 :: 3. Launch Web Application
 echo [3/3] Starting Digital Library Web Server...
-echo Opening application at http://127.0.0.1:8000
+echo Opening application at http://127.0.0.1:8080
 echo.
 
-start "" "http://127.0.0.1:8000"
-".venv\Scripts\python.exe" -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+start "" "http://127.0.0.1:8080"
+%PYTHON_EXE% -m uvicorn app:app --host 127.0.0.1 --port 8080 --reload
 pause
