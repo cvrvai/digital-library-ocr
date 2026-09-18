@@ -9,6 +9,15 @@ let libraryBooks = [];
 document.addEventListener("DOMContentLoaded", () => {
   initSession();
   loadLibrary();
+
+  // Global drag & drop support anywhere in window
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      uploadAndOCRFiles(e.dataTransfer.files);
+    }
+  });
 });
 
 // ---------------- Session ----------------
@@ -251,6 +260,36 @@ function renderPagesList() {
       }
     }
   });
+
+  // Append an Add More Pages card at the bottom of the list
+  const addMoreCard = document.createElement("div");
+  addMoreCard.className = "border-2 border-dashed border-slate-700/80 hover:border-indigo-500 bg-slate-900/40 hover:bg-indigo-950/20 rounded-2xl p-6 text-center cursor-pointer transition flex items-center justify-center gap-3 group";
+  addMoreCard.onclick = () => document.getElementById("file-upload-input").click();
+  addMoreCard.ondragover = (e) => {
+    e.preventDefault();
+    addMoreCard.classList.add("border-indigo-500", "bg-indigo-950/40");
+  };
+  addMoreCard.ondragleave = (e) => {
+    e.preventDefault();
+    addMoreCard.classList.remove("border-indigo-500", "bg-indigo-950/40");
+  };
+  addMoreCard.ondrop = (e) => {
+    e.preventDefault();
+    addMoreCard.classList.remove("border-indigo-500", "bg-indigo-950/40");
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      uploadAndOCRFiles(e.dataTransfer.files);
+    }
+  };
+  addMoreCard.innerHTML = `
+    <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 flex items-center justify-center text-lg border border-indigo-500/20 transition-transform">
+      <i class="fa-solid fa-plus"></i>
+    </div>
+    <div class="text-left">
+      <h4 class="text-sm font-bold text-white group-hover:text-indigo-300 transition">+ Add Page ${sessionPages.length + 1}</h4>
+      <p class="text-xs text-slate-400">Click to upload or drag & drop next book image here</p>
+    </div>
+  `;
+  container.appendChild(addMoreCard);
 }
 
 function drawPageCanvas(ocrResult, imgElement, canvasElement) {
@@ -442,13 +481,18 @@ async function compileBook() {
       })
     });
     const data = await res.json();
-    showToast("Book compiled and saved to Digital Library!", "success");
+    showToast("PDF Book created successfully!", "success");
 
-    // Clear inputs & switch to library
+    // Clear inputs & refresh library
     titleInput.value = "";
     authorInput.value = "";
     switchTab("library");
     await loadLibrary();
+
+    // Immediately open PDF Reader modal with Download button!
+    if (data.book && data.book.id) {
+      openPDFReader(data.book.id, data.book.title);
+    }
   } catch (err) {
     showToast("Compilation failed: " + err.message, "error");
   } finally {
