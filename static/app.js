@@ -85,8 +85,8 @@ async function uploadAndOCRFiles(files) {
 
   // Show processing animation
   banner.classList.remove("hidden");
-  document.getElementById("processing-title").textContent = `Processing ${files.length} Image(s) with PaddleOCR...`;
-  document.getElementById("processing-subtitle").textContent = `Detecting text orientation, words, and bounding boxes...`;
+  const procTitle = document.getElementById("processing-title");
+  if (procTitle) procTitle.textContent = "Processing...";
 
   const autoCrop = document.getElementById("auto-crop-toggle")?.checked ?? true;
   const formData = new FormData();
